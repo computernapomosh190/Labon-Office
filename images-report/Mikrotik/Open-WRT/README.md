@@ -1,5 +1,5 @@
 <details>
-<summary>📸 Скриншоты конфигурации Mikrotik (WinBox)</summary>
+<summary>📸 Скріншоти конфигурации Open-WRT</summary>
 
 ### Таблица VLAN-интерфейсов
 ![VLAN Interfaces](images/open-wrt_vlan.png)
