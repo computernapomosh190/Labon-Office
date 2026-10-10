@@ -1,0 +1,118 @@
+
+📘 RUNBOOK: Розгортання FTP-серверів (Linux vs OpenWrt)
+
+Мета: Налаштувати два ізольовані FTP-сервери для обміну файлами в мережі:
+1. На базі Linux (vsftpd) — як потужне корпоративне сховище.
+2. На базі OpenWrt (vsftpd) — як легковажне сховище на базі мережевого роутера.
+
+🐧 ЧАСТИНА 1: Розгортання FTP-сервера на Linux (labon-srv)
+
+На Linux ми використовуємо vsftpd (Very Secure FTP Daemon) — комерційний стандарт безпеки та швидкості.
+
+Етап 1. Встановлення пакетів
+sudo apt update && sudo apt install vsftpd -y
+
+Етап 2. Створення виділеного FTP-користувача
+
+Для безпеки закриваємо користувачу доступ до консолі SSH, залишаючи лише доступ до файлів.
+# Створюємо користувача ftp_linux із захищеною оболонкою /false
+sudo useradd -m ftp_linux -s /usr/sbin/nologin
+sudo passwd ftp_linux  # Задайте пароль, наприклад: linux_pass123
+
+Етап 3. Конфігурація vsftpd
+
+1. Відкрийте конфігураційний файл:
+sudo nano /etc/vsftpd.conf
+listen=YES
+listen_ipv6=NO
+anonymous_enable=NO        # Заборонити анонімний вхід
+local_enable=YES           # Дозволити вхід локальним користувачам
+write_enable=YES           # Дозволити завантаження файлів на сервер
+local_umask=022
+
+# Ізоляція користувача в його домашній директорії (Chroot jail)
+chroot_local_user=YES
+allow_writeable_chroot=YES
+
+# Налаштування пасивного режиму (критично для роботи через Mikrotik NAT)
+pasv_enable=YES
+pasv_min_port=40000
+pasv_max_port=40100
+
+Етап 4. Налаштування Firewall та перезапуск
+
+Якщо у вас увімкнено локальний фаєрвол iptables / ufw, відкриваємо порти керування (21) та діапазон пасивних портів:
+sudo ufw allow 21/tcp
+sudo ufw allow 40000:40100/tcp
+sudo systemctl restart vsftpd && sudo systemctl enable vsftpd
+
+🌐 ЧАСТИНА 2: Розгортання FTP-сервера на OpenWrt (192.168.10.250)
+
+На OpenWrt ресурси обмежені, тому vsftpd тут працює у максимально легкому режимі.
+
+Етап 1. Підключення та встановлення пакетів
+opkg update
+opkg install vsftpd-alt
+Етап 2. Підготовка папки для файлів (наприклад, на флешці або в системі)
+
+mkdir -p /mnt/ftp_share
+chmod 777 /mnt/ftp_share
+
+
+Етап 3. Конфігурація vsftpd на OpenWrt
+
+1. Відкрийте конфіг:bash
+vi /etc/vsftpd.conf
+Используйте код с осторожностью.
+(Натисніть i для переходу в режим редагування).
+2. Приведіть файл до такого вигляду (для простоти лабораторної налаштуємо анонімний доступ без пароля лише для читання/запису у виділену папку):ini
+background=YES
+listen=YES
+anonymous_enable=YES
+anon_root=/mnt/ftp_share
+local_enable=NO
+write_enable=YES
+anon_upload_enable=YES
+anon_mkdir_write_enable=YES
+Используйте код с осторожностью.
+3. Збережіть файл: натисніть Esc, введіть :wq та натисніть Enter.
+
+Етап 4. Відкриття портів у фаєрволі OpenWrt та запуск
+
+Щоб роутер OpenWrt пропускав FTP-трафік через свій вбудований Firewall (обгортка над iptables), виконайте:
+bash
+# Додаємо правило відкриття 21 порту
+uci add firewall rule
+uci set firewall.@rule[-1].name='Allow-FTP'
+uci set firewall.@rule[-1].src='lan'
+uci set firewall.@rule[-1].dest_port='21'
+uci set firewall.@rule[-1].proto='tcp'
+uci set firewall.@rule[-1].target='ACCEPT'
+uci commit firewall
+/etc/init.init.d/firewall restart
+
+# Запуск FTP-сервера
+/etc/init.d/vsftpd enable
+/etc/init.d/vsftpd start
+
+
+🎛 ЧАСТИНА 3: Прокидання порту на Mikrotik (DST-NAT)
+
+Щоб отримати доступ до вашого основного Linux FTP-сервера із зовнішньої мережі (192.168.152.129), 
+потрібно прокинути не лише порт команд (21), а й пасивні порти для передачі даних (40000-40100).
+Виконайте ці дві команди в New Terminal вашого Mikrotik:
+routeros
+# 1. Прокидання командного порту FTP
+/ip firewall nat add chain=dstnat action=dst-nat to-addresses=192.168.10.2 to-ports=21 
+protocol=tcp dst-address=192.168.152.129 dst-port=2121 comment="FTP Commands"
+
+# 2. Прокидання діапазону пасивних портів (для передачі списку файлів та даних)
+/ip firewall nat add chain=dstnat action=dst-nat to-addresses=192.168.10.2 to-port=40000-40100 protocol=tcp dst-address=192.168.152.129 
+dst-port=40000-40100 comment="FTP Data Passive"
+
+
+🚀 Як перевірити роботу (тест для викладача)
+
+1. Для Linux FTP: Відкрийте на клієнтському ПК програму FileZilla або браузер. Введіть адресу: ftp://192.168.152.129:2121. Програма запитає логін (ftp_linux) та пароль (linux_pass123). Після введення ви зможете завантажувати туди файли.
+2. Для OpenWrt FTP: Всередині мережі (наприклад, з VLAN 20/30) введіть у провіднику: ftp://192.168.10.250. Ви потрапите в анонімну папку без запиту пароля.
+
