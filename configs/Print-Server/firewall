@@ -1,0 +1,9 @@
+cat << 'EOF' >> /etc/config/firewall
+
+config rule
+	option name 'Allow-Printer'
+	option src 'lan'
+	option dest_port '9100'
+	option proto 'tcp'
+	option target 'ACCEPT'
+EOF
