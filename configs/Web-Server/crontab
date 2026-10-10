@@ -1,0 +1,5 @@
+* * * * * cd /var/www/html/espocrm; /usr/bin/php -f cron.php > /dev/null 2>&1
+0 2 * * * /home/user/backup.sh >> /var/log/db_backup.log 2>&1
+0 23 * * 0 /home/USER/clean_cache.sh >> /var/log/cache_clean.log 2>&1
+*/5 * * * * /opt/zabbix_scripts/check_services.sh
+0 * * * * /opt/zabbix_scripts/parse_logs_zabbix.sh
