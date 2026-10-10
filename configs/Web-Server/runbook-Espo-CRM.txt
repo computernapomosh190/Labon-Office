@@ -1,0 +1,57 @@
+
+📘 RUNBOOK: Розгортання EspoCRM в ізольованій мережі (VLAN)
+
+Мета: Розгорнути веб-додаток EspoCRM на базі стеку LEMP (Linux, Nginx, MariaDB, PHP 8.5) на сервері labon-srv (192.168.10.2) та налаштувати безпечний віддалений доступ через маршрутизатор Mikrotik (DST-NAT) в умовах обмежених ресурсів мережі.
+
+📅 Етап 1. Підготовка бази даних (MariaDB / MySQL)
+
+# Вхід до консолі СУБД під суперкористувачем
+sudo mysql -u root -p
+-- Створення бази даних із правильною кодиркою для української мови
+CREATE DATABASE espocrm CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Створення користувача та надання прав
+CREATE USER 'espo_user'@'localhost' IDENTIFIED BY 'password123';
+GRANT ALL PRIVILEGES ON espocrm.* TO 'espo_user'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+
+💻 Етап 2. Установка інтерпретатора PHP 8.5 та модулів
+sudo apt update
+sudo apt install php php-mysql php-cgi php-mbstring php-gd php-zip php-curl php-xml php-json -y
+
+📂 Етап 3. Завантаження та підготовка файлів CRM
+# Перехід у тимчасовий каталог та завантаження zip-архіву
+cd /tmp
+wget https://espocrm.com
+
+# Розпакування в цільовий каталог веб-сервера
+sudo unzip EspoCRM-latest.zip -d /var/www/html/espocrm
+
+# Переміщення файлів з автоствореної папки на один рівень вище
+sudo mv /var/www/html/espocrm/EspoCRM-10.0.9/* /var/www/html/espocrm/
+sudo mv /var/www/html/espocrm/EspoCRM-10.0.9/.* /var/www/html/espocrm/ 2>/dev/null
+sudo rmdir /var/www/html/espocrm/EspoCRM-10.0.9
+
+
+🌐 Етап 4. Налаштування веб-сервера Nginx (Порт 8081)
+
+Конфігураційний файл /etc/nginx/sites-available/default було відредаговано. Згідно з вимогами безпеки нових версій EspoCRM, корінь сайту було спрямовано у папку /public [1.22]. Також було прописано точний Unix-сокет версії php8.5-fpm.sock [1.20] та збільшено таймаути для стабільної роботи на повільних каналах зв'язку (1 Мбіт/с)
+
+🔑 Етап 5. Права доступу та запуск сервісів
+Для усунення помилок 403 Forbidden веб-серверу www-data було надано рекурсивні права на читання та виконання файлів CRM-системи
+# Надання прав доступу веб-серверу
+sudo chown -R www-data:www-data /var/www/html/espocrm
+sudo chmod -R 755 /var/www/html/espocrm
+
+# Перевірка синтаксису Nginx та перезапуск служб
+sudo nginx -t && sudo systemctl restart nginx php8.5-fpm mariadb
+
+
+🎛 Етап 6. Налаштування прокидання портів на Mikrotik (DST-NAT)
+
+Для забезпечення віддаленого доступу до CRM-системи із зовнішньої мережі було налаштовано Port Forwarding. Щоб уникнути конфлікту із сервісом IP-телефонії (який уже займав зовнішній порт 8443), для EspoCRM було виділено унікальний зовнішній порт 8444.
+
+/ip firewall nat add chain=dstnat action=dst-nat to-addresses=192.168.10.2 to-ports=8081 protocol=tcp dst-address=192.168.152.129 dst-port=8444 comment="Новий порт для EspoCRM"
+
+Результат: Графічний інтерфейс системи успішно відкривається на хості клієнта за адресою http://192.168.152.129:8444
