@@ -1,0 +1,25 @@
+bantime = 1d
+findtime = 10m
+maxretry = 5
+
+[sshd]
+enabled = true
+port    = ssh
+logpath = %(sshd_log)s
+backend = %(sshd_backend)s
+maxretry = 3
+
+
+[nginx-http-auth]
+enabled = true
+filter  = nginx-http-auth
+port    = http,https,8081
+logpath = /var/log/nginx/error.log
+maxretry = 3
+
+[nginx-botsearch]
+enabled = true
+filter  = nginx-botsearch
+port    = http,https,8081
+logpath = /var/log/nginx/access.log
+maxretry = 5
