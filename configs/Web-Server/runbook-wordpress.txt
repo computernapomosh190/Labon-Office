@@ -5,6 +5,16 @@
 використовуючи веб-сервер Nginx, СУБД MariaDB та інтерпретатор PHP 8.5,
 з урахуванням низької швидкості локальної мережі (1 Мбіт/с) та ізоляції портів.
 
+ПІДГОТОВКА:
+
+Встановлення PHP 8.5 и модули для WordPress
+
+sudo apt update
+sudo apt install php8.5-fpm php8.5-cli php8.5-mysql php8.5-curl php8.5-gd php8.5-mbstring php8.5-xml php8.5-xmlrpc php8.5-soap php8.5-intl php8.5-zip -y
+
+sudo systemctl enable php8.5-fpm
+sudo systemctl start php8.5-fpm
+
 📅 Етап 1. Створення бази даних у СУБД MariaDB
 # Вхід до консолі MariaDB (використовуйте пароль root-користувача СУБД)
 sudo mysql -u root -p
