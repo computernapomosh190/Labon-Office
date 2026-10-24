@@ -39,7 +39,12 @@ pasv_enable=YES
 pasv_min_port=40000
 pasv_max_port=40100
 
-Етап 4. Налаштування Firewall та перезапуск
+Етап 4.Створення директорїї
+sudo mkdir -p /srv/ftp/upload
+chown -R ftp-user:ftp-user /srv/ftp/upload
+
+
+Етап 5. Налаштування Firewall та перезапуск
 
 Якщо у вас увімкнено локальний фаєрвол iptables / ufw, відкриваємо порти керування (21) та діапазон пасивних портів:
 sudo ufw allow 21/tcp
